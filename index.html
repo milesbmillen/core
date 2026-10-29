@@ -36,6 +36,14 @@ h2{font-size:32px;margin:6px 0}
 .note{font-size:16px;color:#7a5a3a;background:#f9e9d7;border-radius:14px;padding:10px 14px;margin:10px 0 6px;width:100%}
 .tip{font-size:22px;text-align:left;background:#fff;border-radius:18px;padding:14px 16px;margin:8px 0;width:100%;line-height:1.3}
 .tip b{display:block;font-size:24px}
+.badge{background:#d9774b;color:#fff;font-size:18px;border-radius:12px;padding:3px 10px;vertical-align:middle;margin-left:6px}
+.badge[hidden]{display:none}
+#mlist{width:100%;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:6px 0 10px}
+.msg{max-width:85%;border-radius:20px;padding:12px 16px;font-size:22px;line-height:1.35;text-align:left}
+.msg .d{font-size:15px;color:#5d6e6b;margin-bottom:4px}
+.msg.h{align-self:flex-start;background:#fff}
+.msg.b{align-self:flex-end;background:#cfe3df}
+.msg.b .d{text-align:right}
 </style></head><body>
 
 <section id="start" class="screen on">
@@ -44,8 +52,15 @@ h2{font-size:32px;margin:6px 0}
   <svg viewBox="0 0 340 170" class="fig"><line x1="10" y1="150" x2="330" y2="150" stroke="#c9d6d3" stroke-width="4"/><rect x="20" y="122" width="60" height="18" rx="9" fill="#dde6e4"/><circle cx="50" cy="112" r="20" fill="#e8c4a8"/><path d="M72,128 L200,132" stroke="#5b8c85" stroke-width="26" stroke-linecap="round"/><path d="M200,132 L250,75 L295,140" fill="none" stroke="#7a9e99" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="M130,118 q20,-8 40,0" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/></svg>
   <div class="week" id="week"></div>
   <div class="sub" id="streak"></div>
-  <div class="row"><button class="btn" id="go">Start</button></div>
-  <a class="btn alt" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Message healthy</a>
+  <div class="row" style="flex-direction:column;gap:0"><button class="btn alt" id="msgs">Messages <span id="badge" class="badge" hidden>New</span></button><button class="btn" id="go">Start</button></div>
+  <a class="btn alt" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Send a message</a>
+</section>
+
+<section id="messages" class="screen">
+  <h2>Messages</h2>
+  <div id="mlist"></div>
+  <a class="btn alt" style="display:block;text-align:center;text-decoration:none" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Send a message</a>
+  <button class="btn" id="mback">Back</button>
 </section>
 
 <section id="ex" class="screen">
@@ -66,7 +81,7 @@ h2{font-size:32px;margin:6px 0}
   <div class="tip"><b>Roll to your side to get up</b>From bed or the floor, roll first, then push up with your arms.</div>
   <div class="tip"><b>Don't hold your breath or strain</b>Keep breathing, never bear down.</div>
   <div class="row"><button class="btn" id="home">Back to start</button></div>
-  <a class="btn alt" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="mailto:healthy-millen@mail.grokbot.com?subject=How%20today%20went">Message healthy</a>
+  <a class="btn alt" style="display:block;text-align:center;text-decoration:none;margin-top:12px" href="mailto:healthy-millen@mail.grokbot.com?subject=How%20today%20went">Send a message</a>
 </section>
 
 <script>
@@ -120,5 +135,21 @@ $("home").onclick=()=>{renderWeek();show("start")};
 $("pause").onclick=()=>{const r=$("ring");
  if(!paused){paused=true;clearTimeout(timer);left-=Date.now()-t0;const cs=getComputedStyle(r).transform;r.style.transition="none";r.style.transform=cs;$("pause").textContent="Resume";$("word").textContent="Paused"}
  else{paused=false;$("pause").textContent="Pause";const p=phase,ms=Math.max(left,300);startPhase(p,ms)}};
-renderWeek();
+let MSG=[];
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function fmtDate(d){const x=new Date(d+"T12:00:00");return isNaN(x)?esc(d):x.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}
+function lastH(){return MSG.filter(m=>m.from==="healthy").reduce((a,m)=>Math.max(a,m.id),0)}
+function updBadge(){$("badge").hidden=!(lastH()>+(localStorage.getItem("coreSeen")||0))}
+function renderMsgs(){const L=$("mlist");
+ if(!MSG.length){L.innerHTML='<div class="sub">No messages yet. If you are offline, try again later.</div>';return}
+ L.innerHTML=MSG.slice().sort((a,b)=>a.id-b.id).map(m=>`<div class="msg ${m.from==="bonnie"?"b":"h"}"><div class="d">${m.from==="bonnie"?"You":"healthy"} · ${fmtDate(m.date)}</div>${esc(m.text)}</div>`).join("");
+ L.scrollTop=L.scrollHeight}
+async function loadMsgs(){
+ try{const r=await fetch("messages.json",{cache:"no-store"});if(!r.ok)throw 0;MSG=await r.json();localStorage.setItem("coreMsgCache",JSON.stringify(MSG))}
+ catch(e){try{MSG=JSON.parse(localStorage.getItem("coreMsgCache")||"[]")}catch(_){MSG=[]}}
+ updBadge();if($("messages").classList.contains("on"))renderMsgs()}
+$("msgs").onclick=()=>{show("messages");renderMsgs();localStorage.setItem("coreSeen",lastH());updBadge();loadMsgs().then(()=>localStorage.setItem("coreSeen",lastH()))};
+$("mback").onclick=()=>{updBadge();show("start")};
+renderWeek();loadMsgs();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadMsgs()});
 </script></body></html>
