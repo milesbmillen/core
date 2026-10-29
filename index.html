@@ -73,6 +73,13 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
 .info .body b{color:var(--accent2)}
 #ex.infoopen .breath{transform:scale(.72);margin:-26px auto}
 .breath{transition:all .45s}
+#ctext{width:100%;flex:1;min-height:220px;max-height:340px;font:inherit;font-size:22px;line-height:1.4;color:var(--ink);border:0;border-radius:26px;padding:18px 20px;background:rgba(255,255,255,.85);box-shadow:0 10px 30px rgba(120,95,80,.10);resize:none;outline:none;margin:10px 0}
+#ctext:focus{box-shadow:0 0 0 3px rgba(111,148,132,.35),0 10px 30px rgba(120,95,80,.10)}
+.btn:disabled{opacity:.45;box-shadow:none}
+.cstat{font-size:19px;min-height:28px;margin:4px 0;font-weight:600}
+.cstat.ok{color:var(--accent2)}.cstat.err{color:#b0624d}
+.hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+.msg.pend{opacity:.75}
 </style></head><body>
 
 <section id="start" class="screen on">
@@ -81,14 +88,23 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
   <div class="card figcard"><div id="startfig"></div></div>
   <div class="card"><div class="week" id="week"></div><div class="streak" id="streak"></div></div>
   <div class="row stack"><button class="btn alt" id="msgs">Messages <span id="badge" class="badge" hidden>New</span></button><button class="btn" id="go">Start</button>
-  <a class="btn alt" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Send a message</a></div>
+  <button class="btn alt sendmsg">Send a message</button></div>
 </section>
 
 <section id="messages" class="screen">
   <h2 style="margin-top:14px">Messages</h2>
   <div id="mlist"></div>
-  <a class="btn alt" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Send a message</a>
+  <button class="btn alt sendmsg">Send a message</button>
   <button class="btn" id="mback">Back</button>
+</section>
+
+<section id="compose" class="screen">
+  <h2 style="margin-top:14px">Send a message</h2>
+  <textarea id="ctext" placeholder="How did it feel? Any questions?"></textarea>
+  <input type="checkbox" id="hp" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+  <div class="cstat" id="cstat"></div>
+  <button class="btn" id="csend" disabled>Send</button>
+  <button class="btn alt" id="cback">Back</button>
 </section>
 
 <section id="ex" class="screen">
@@ -111,7 +127,7 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
   <div class="card tip"><b>Roll to your side to get up</b>From bed or the floor, roll first, then push up with your arms.</div>
   <div class="card tip"><b>Don't hold your breath or strain</b>Keep breathing, never bear down.</div>
   <div class="row stack"><button class="btn" id="home">Back to start</button>
-  <a class="btn alt" href="mailto:healthy-millen@mail.grokbot.com?subject=How%20today%20went">Send a message</a></div>
+  <button class="btn alt sendmsg">Send a message</button></div>
 </section>
 
 <script>
@@ -247,9 +263,11 @@ function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","
 function fmtDate(d){const x=new Date(d+"T12:00:00");return isNaN(x)?esc(d):x.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"})}
 function lastH(){return MSG.filter(m=>m.from==="healthy").reduce((a,m)=>Math.max(a,m.id),0)}
 function updBadge(){$("badge").hidden=!(lastH()>+(localStorage.getItem("coreSeen")||0))}
-function renderMsgs(){const L=$("mlist");
- if(!MSG.length){L.innerHTML='<div class="sub">No messages yet. If you are offline, try again later.</div>';return}
- L.innerHTML=MSG.slice().sort((a,b)=>a.id-b.id).map(m=>`<div class="msg ${m.from==="bonnie"?"b":"h"}"><div class="d">${m.from==="bonnie"?"You":"healthy"} · ${fmtDate(m.date)}</div>${esc(m.text)}</div>`).join("");
+function pend(){try{return JSON.parse(localStorage.getItem("corePending")||"[]")}catch(e){return[]}}
+function prunePend(){const have=new Set(MSG.filter(m=>m.from==="bonnie").map(m=>m.text.trim()));const p=pend().filter(x=>!have.has(x.text.trim()));localStorage.setItem("corePending",JSON.stringify(p));return p}
+function renderMsgs(){const L=$("mlist");const P=prunePend();
+ if(!MSG.length&&!P.length){L.innerHTML='<div class="sub">No messages yet. If you are offline, try again later.</div>';return}
+ L.innerHTML=MSG.slice().sort((a,b)=>a.id-b.id).map(m=>`<div class="msg ${m.from==="bonnie"?"b":"h"}"><div class="d">${m.from==="bonnie"?"You":"healthy"} · ${fmtDate(m.date)}</div>${esc(m.text)}</div>`).join("")+P.map(m=>`<div class="msg b pend"><div class="d">You · ${fmtDate(m.date)} · sent</div>${esc(m.text)}</div>`).join("");
  L.scrollTop=L.scrollHeight}
 async function loadMsgs(){
  try{const r=await fetch("messages.json",{cache:"no-store"});if(!r.ok)throw 0;MSG=await r.json();localStorage.setItem("coreMsgCache",JSON.stringify(MSG))}
@@ -262,6 +280,21 @@ function frame(){if($("ex").classList.contains("on")&&!paused){const el=Math.min
  const e=phase==="in"?q:1-q,m=phase==="in"?1-q:q;$("figbox").innerHTML=figSVG(EX[i].f,e,m)}requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
 $("startfig").innerHTML=figSVG("lie",.4,0);
+const W3KEY="8659501e-ea3d-474c-af55-bac2b2ab5d11";let back="start";
+function curScreen(){const s=document.querySelector(".screen.on");return s?s.id:"start"}
+document.querySelectorAll(".sendmsg").forEach(b=>b.onclick=()=>{back=curScreen();$("cstat").textContent="";$("cstat").className="cstat";show("compose");upd()});
+function upd(){$("csend").disabled=!$("ctext").value.trim()}
+$("ctext").oninput=upd;
+$("cback").onclick=()=>{if(back==="messages")renderMsgs();show(back)};
+$("csend").onclick=async()=>{const text=$("ctext").value.trim();if(!text)return;
+ const b=$("csend"),st=$("cstat");b.disabled=true;b.textContent="Sending…";st.className="cstat";st.textContent="";
+ try{if(!navigator.onLine)throw 0;
+  const r=await fetch("https://api.web3forms.com/submit",{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+   body:JSON.stringify({access_key:W3KEY,subject:"Core message from Bonnie",from_name:"Bonnie (Core app)",message:text,botcheck:$("hp").checked})});
+  const j=await r.json().catch(()=>({}));if(!r.ok||j.success===false)throw 0;
+  const p=pend();p.push({date:localKey(new Date()),text});localStorage.setItem("corePending",JSON.stringify(p));
+  $("ctext").value="";st.className="cstat ok";st.textContent="Sent ✓ I'll answer here soon";b.textContent="Send";upd();
+ }catch(e){st.className="cstat err";st.textContent="Couldn't send. Check your connection and try again.";b.textContent="Send";upd()}};
 renderWeek();loadMsgs();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){loadMsgs();if($("start").classList.contains("on"))renderWeek()}});
 </script></body></html>
