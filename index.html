@@ -66,12 +66,19 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
 .msg.h{align-self:flex-start;background:#fff;border-bottom-left-radius:8px}
 .msg.b{align-self:flex-end;background:linear-gradient(180deg,#86a998,#6f9484);color:#fff;border-bottom-right-radius:8px}
 .msg.b .d{text-align:right;color:rgba(255,255,255,.85)}
+.info{width:100%;margin:2px 0 0;text-align:left}
+.info button{font:inherit;font-size:17px;font-weight:650;color:var(--accent2);background:rgba(255,255,255,.6);border:0;border-radius:14px;padding:7px 14px;display:block;margin:0 auto}
+.info .body{max-height:0;overflow:hidden;transition:max-height .45s ease,opacity .45s ease;opacity:0;font-size:16px;line-height:1.4;color:var(--ink);background:rgba(255,255,255,.7);border-radius:16px;padding:0 14px;margin-top:6px}
+.info.open .body{max-height:170px;opacity:1;padding:10px 14px}
+.info .body b{color:var(--accent2)}
+#ex.infoopen .breath{transform:scale(.72);margin:-26px auto}
+.breath{transition:all .45s}
 </style></head><body>
 
 <section id="start" class="screen on">
   <h1 id="hello">Hello, Bonnie</h1>
   <div class="sub">Your core time · about 6 minutes</div>
-  <div class="card figcard"><svg viewBox="10 40 320 118" class="fig" role="img"><rect x="14" y="140" width="312" height="12" rx="6" fill="#e3ece6"/><rect x="14" y="140" width="312" height="4" rx="2" fill="#d3e0d8"/><ellipse cx="50" cy="132" rx="30" ry="8" fill="#f1e6dc" stroke="#5f7f74" stroke-width="2.5"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#5f7f74" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#c9d9cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#5f7f74" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#a9c4b6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="36" cy="106" r="8" fill="#8a6a58"/><circle cx="54" cy="112" r="16" fill="#f3d9c9" stroke="#5f7f74" stroke-width="2.5"/><path d="M40,104 q10,-14 28,-2" fill="none" stroke="#8a6a58" stroke-width="6" stroke-linecap="round"/><path d="M126,113 q16,-7 32,0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/></svg></div>
+  <div class="card figcard"><div id="startfig"></div></div>
   <div class="card"><div class="week" id="week"></div><div class="streak" id="streak"></div></div>
   <div class="row stack"><button class="btn alt" id="msgs">Messages <span id="badge" class="badge" hidden>New</span></button><button class="btn" id="go">Start</button>
   <a class="btn alt" href="mailto:healthy-millen@mail.grokbot.com?subject=Core%20app%20message">Send a message</a></div>
@@ -91,6 +98,7 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
   <div class="cue" id="cue"></div>
   <div class="breath"><div class="halo" id="halo"></div><div class="orb" id="ring"></div><div class="word" id="word"></div></div>
   <div class="count" id="reps"></div>
+  <div class="info" id="info"><button id="infobtn">What this works ⓘ</button><div class="body" id="infobody"></div></div>
   <div class="note">Gentle, about 30%. Belly domes or aches more? Make it easier.</div>
   <div class="row"><button class="btn alt" id="pause">Pause</button><button class="btn" id="next">Next</button></div>
 </section>
@@ -107,11 +115,82 @@ h2{font-size:32px;font-weight:700;letter-spacing:-.3px;margin:4px 0 6px}
 </section>
 
 <script>
+// ---- Jointed figure (pure SVG, rebuilt per frame) ----
+const FG={INK:"#5f7f74",SKIN:"#f3d9c9",SKIN2:"#e9c7b4",TOP:"#a9c4b6",LEG:"#8fae9f",LEG2:"#7d9b8d",HAIR:"#7b5a48",MAT:"#e3ece6"};
+const L1=73,L2=75; // thigh, shin (body height 300; head 40)
+function P(d,fill,extra=""){return `<path d="${d}" fill="${fill}" stroke="${FG.INK}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" ${extra}/>`}
+const R2D=180/Math.PI;
+function thighShape(c){return P(`M0,-14 C25,-13 55,-10 ${L1},-8.5 A8.5,8.5 0 0 1 ${L1},8.5 C55,11 30,17 0,17 A15.5,15.5 0 0 1 0,-14 Z`,c)}
+function shinShape(c){return P(`M0,-8.5 C25,-7.5 55,-5 ${L2},-4.5 A4.5,4.5 0 0 1 ${L2},4.5 C58,6 34,12.5 14,11 C6,10 0,9 0,8.5 A8.5,8.5 0 0 1 0,-8.5 Z`,c)}
+function footShape(){return P(`M-4,-4.5 C6,-5 18,-1 30,4 C33,5.5 32,9 29,9 L-3,9 C-8,9 -9,1 -4,-4.5 Z`,FG.SKIN)}
+// nested jointed leg: hip(x,y), thigh angle a, knee rel b, foot rel c (degrees)
+function leg(x,y,a,b,c,col){return `<g transform="translate(${x},${y}) rotate(${a})">${thighShape(col)}<g transform="translate(${L1},0) rotate(${b})">${shinShape(col)}<g transform="translate(${L2},0) rotate(${c})">${footShape()}</g></g></g>`}
+function ik(hx,hy,ax,ay){const dx=ax-hx,dy=ay-hy,d=Math.min(Math.hypot(dx,dy),L1+L2-0.5);
+ const base=Math.atan2(dy,dx),k=Math.acos((L1*L1+d*d-L2*L2)/(2*L1*d));const a=base-k;
+ const kx=hx+L1*Math.cos(a),ky=hy+L1*Math.sin(a);const s=Math.atan2(ay-ky,ax-kx);return{a:a*R2D,b:(s-a)*R2D,s:s*R2D}}
+function torso(e){const rib=92-2.5*e,bel=99-3.5*e,bust=86-1.2*e;
+ return `M72,102 C82,97 92,${bust} 106,${bust} C118,${bust} 123,${rib-1} 131,${rib} C143,${bel} 157,${bel} 168,${97-e} C178,96 187,101 191,110 L192,122 C187,130 177,131 167,129 C145,126 118,127 92,129 C78,129 68,125 67,115 C67,108 69,104 72,102 Z`}
+function body(e){ // torso+neck+head, sagittal, front = up
+ const t=torso(e);
+ return P("M52,104 C60,101 66,100 72,101 L72,124 C64,125 58,125 52,122 Z",FG.SKIN)+
+ P(t,FG.LEG)+`<clipPath id="tc"><rect x="0" y="0" width="150" height="200"/></clipPath>`+P(t,FG.TOP,'clip-path="url(#tc)"')+
+ `<path d="M150,${96-3.5*e} L150,128" stroke="${FG.INK}" stroke-width="1.6" opacity=".5"/>`+
+ `<circle cx="16" cy="110" r="8" fill="${FG.HAIR}" stroke="${FG.INK}" stroke-width="1.6"/>`+
+ P("M37,95 C48,95 55,101 56,108 C57,115 53,122 46,125 C38,128 26,126 21,119 C17,112 20,101 27,97 C30,95 34,95 37,95 Z",FG.SKIN)+
+ `<path d="M45,95 L49,91 L50,96" fill="${FG.SKIN}" stroke="${FG.INK}" stroke-width="1.8" stroke-linejoin="round"/>`+
+ `<path d="M27,97 C20,101 17,112 21,119 C26,126 36,128 44,126 C36,122 32,116 33,108 C34,101 38,98 44,96 C38,94 31,95 27,97 Z" fill="${FG.HAIR}"/>`+
+ `<path d="M43,101 q3,1.5 6,0" stroke="${FG.INK}" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M51,104 q2,1 3,3" stroke="#c98d7c" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M33,108 q4,-2 5,3 q-1,4 -5,3" fill="${FG.SKIN2}" stroke="${FG.INK}" stroke-width="1.3"/><path d="M41,97 q4,-1 7,1" stroke="${FG.INK}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+}
+function armSide(sx,sy,ex,ey,wx,wy){const ua=Math.atan2(ey-sy,ex-sx)*R2D,la=Math.hypot(ex-sx,ey-sy),fa=Math.atan2(wy-ey,wx-ex)*R2D,lf=Math.hypot(wx-ex,wy-ey);
+ return `<g transform="translate(${sx},${sy}) rotate(${ua})">`+P(`M0,-6.5 C${la*.4},-6.5 ${la*.8},-5 ${la},-4.5 A4.5,4.5 0 0 1 ${la},4.5 C${la*.7},5 ${la*.3},6.5 0,6.5 A6.5,6.5 0 0 1 0,-6.5 Z`,FG.SKIN)+
+ `<g transform="translate(${la},0) rotate(${fa-ua})">`+P(`M0,-4.5 C${lf*.4},-4.5 ${lf*.8},-3.3 ${lf},-3 A3,3 0 0 1 ${lf},3 C${lf*.6},3.5 ${lf*.3},4.5 0,4.5 A4.5,4.5 0 0 1 0,-4.5 Z`,FG.SKIN)+
+ `<g transform="translate(${lf},0)">`+P("M-1,-3.5 C5,-4.5 12,-3 15,0 C12,3 5,3.5 -1,3.5 Z",FG.SKIN)+`</g></g></g>`+
+ `<path d="M${sx-9},${sy-6} C${sx},${sy-11} ${sx+14},${sy-8} ${sx+16},${sy}" fill="none" stroke="${FG.INK}" stroke-width="1.4" opacity=".6"/>`}
+const MAT=`<rect x="0" y="130" width="360" height="9" rx="4.5" fill="${FG.MAT}" stroke="#cfdcd4" stroke-width="1.5"/>`;
+function supine(e,m,kind){ // e breath 0..1, m movement 0..1
+ const hx=165,hy=110,ay=121,bent=ik(hx,hy,269,ay);
+ let ax=269; if(kind==="slide")ax=269+m*(Math.sqrt((L1+L2-6)**2-121)-104);
+ const n=ik(hx,hy,ax,ay),c=-(n.a+n.b)-(kind==="slide"?18*m*m:0);
+ const far=leg(hx-4,hy-2,bent.a,bent.b,-(bent.a+bent.b),FG.LEG2);
+ return `<svg viewBox="0 40 360 104" class="fig">${MAT}${far}${body(e)}${leg(hx,hy,n.a,n.b,c,FG.LEG)}${armSide(84,116,138,123,182,125)}</svg>`;
+}
+// ---- top (bird's-eye) view for fallouts ----
+function capsule(x1,y1,r1,x2,y2,r2,fill){const a=Math.atan2(y2-y1,x2-x1),l=Math.hypot(x2-x1,y2-y1);
+ return `<g transform="translate(${x1},${y1}) rotate(${a*R2D})">`+P(`M0,${-r1} C${l*.45},${-r1} ${l*.75},${-r2} ${l},${-r2} A${r2},${r2} 0 0 1 ${l},${r2} C${l*.75},${r2} ${l*.45},${r1} 0,${r1} A${r1},${r1} 0 0 1 0,${-r1} Z`,fill)+`</g>`}
+function topLeg(hy,side,th){ // side: +1 = toward bottom of screen; th = fallout angle (rad)
+ const hx=165,ax=269,h=47; const ky=hy+side*h*Math.sin(th),kx=221;
+ return capsule(ax,hy,6,ax+30,hy+side*1,8,FG.SKIN)+capsule(kx,ky,10,ax,hy,6,FG.LEG2)+capsule(hx,hy,17,kx,ky,10,FG.LEG)+
+  `<ellipse cx="${kx}" cy="${ky}" rx="9" ry="8" fill="${FG.LEG}" stroke="${FG.INK}" stroke-width="1.6"/>`}
+function topView(e,m){const th=m*0.75;
+ return `<svg viewBox="-6 20 366 120" class="fig"><rect x="-2" y="26" width="352" height="108" rx="14" fill="${FG.MAT}" stroke="#cfdcd4" stroke-width="1.5"/>`+
+ capsule(80,41,6.5,134,40,4.5,FG.SKIN)+capsule(134,40,4.5,176,44,3.2,FG.SKIN)+capsule(176,44,3.5,190,46,4.5,FG.SKIN)+capsule(80,119,6.5,134,120,4.5,FG.SKIN)+capsule(134,120,4.5,176,116,3.2,FG.SKIN)+capsule(176,116,3.5,190,114,4.5,FG.SKIN)+
+ topLeg(66,-1,0)+topLeg(94,1,th)+
+ P(`M62,66 C62,51 71,46 84,46 C100,46 114,51 126,${54-1.2*e} C136,${56-1.8*e} 144,56 152,54 C164,50 178,51 182,62 L184,98 C178,109 164,110 152,106 C144,104 136,${104+1.8*e} 126,${106+1.2*e} C114,109 100,114 84,114 C71,114 62,109 62,94 Z`,FG.TOP)+
+ `<clipPath id="pc"><rect x="148" y="0" width="60" height="200"/></clipPath>`+P(`M62,66 C62,51 71,46 84,46 C100,46 114,51 126,${54-1.2*e} C136,${56-1.8*e} 144,56 152,54 C164,50 178,51 182,62 L184,98 C178,109 164,110 152,106 C144,104 136,${104+1.8*e} 126,${106+1.2*e} C114,109 100,114 84,114 C71,114 62,109 62,94 Z`,FG.LEG,'clip-path="url(#pc)"')+
+ P("M50,73 L64,71 L64,89 L50,87 Z",FG.SKIN)+
+ `<ellipse cx="34" cy="80" rx="20" ry="15.5" fill="${FG.HAIR}" stroke="${FG.INK}" stroke-width="2"/><ellipse cx="38" cy="80" rx="15" ry="12.5" fill="${FG.SKIN}"/><path d="M44,76 q2,-1 3,0 M44,84 q2,1 3,0" stroke="${FG.INK}" stroke-width="1.4" fill="none"/><path d="M48,80 l3,0" stroke="${FG.INK}" stroke-width="1.6"/><circle cx="12" cy="80" r="8" fill="${FG.HAIR}" stroke="${FG.INK}" stroke-width="1.6"/>`+
+ `<path d="M150,${96} L150,64" stroke="${FG.INK}" stroke-width="1.4" opacity=".4"/>`+
+ `</svg>`}
+// ---- side-lying (seen from above): sagittal profile mirrored so front faces down ----
+function sideLying(e){
+ const hx=165,hy=110,a=40,b=95; // hip flexion 40, knee bend 95
+ const farLeg=leg(hx-3,hy-3,a-4,b,-62,FG.LEG2);
+ return `<svg viewBox="-12 72 372 180" class="fig"><rect x="-8" y="80" width="364" height="156" rx="14" fill="${FG.MAT}" stroke="#cfdcd4" stroke-width="1.5"/>`+
+ capsule(78,102,8,26,100,5,FG.SKIN)+capsule(26,100,5,-4,104,4,FG.SKIN)+
+ farLeg+`<g transform="translate(0,220) scale(1,-1)">${body(e)}</g>`+leg(hx,hy,a,b,-62,FG.LEG)+
+ `<g transform="translate(0,220) scale(1,-1)">${armSide(86,112,136,106,176,98)}</g></svg>`}
+let HL=false;
+function hl(cx,cy,rx,ry){return HL?`<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#f6b59c" opacity=".5"><animate attributeName="opacity" values=".35;.6;.35" dur="2.4s" repeatCount="indefinite"/></ellipse>`:""}
+function figSVG(kind,e,m){const s=kind==="fall"?topView(e,m):kind==="side"?sideLying(e):supine(e,m,kind);
+ const h=kind==="fall"?hl(140,80,42,28)+hl(172,80,14,34):kind==="side"?hl(140,116,38,16):kind==="slide"?hl(145,104,36,15)+hl(176,104,12,14):hl(140,104,40,16);
+ return s.replace("</svg>",h+"</svg>")}
+
+
 const EX=[
- {n:"Core breathing",f:'<svg viewBox="10 40 320 118" class="fig" role="img"><rect x="14" y="140" width="312" height="12" rx="6" fill="#e3ece6"/><rect x="14" y="140" width="312" height="4" rx="2" fill="#d3e0d8"/><ellipse cx="50" cy="132" rx="30" ry="8" fill="#f1e6dc" stroke="#5f7f74" stroke-width="2.5"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#5f7f74" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#c9d9cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#5f7f74" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#a9c4b6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="36" cy="106" r="8" fill="#8a6a58"/><circle cx="54" cy="112" r="16" fill="#f3d9c9" stroke="#5f7f74" stroke-width="2.5"/><path d="M40,104 q10,-14 28,-2" fill="none" stroke="#8a6a58" stroke-width="6" stroke-linecap="round"/><path d="M126,113 q16,-7 32,0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/></svg>',c:"Lie on your back, knees bent. Breathe out, gently cinch the corset, lift.",r:10},
- {n:"Heel slides",f:'<svg viewBox="10 40 320 118" class="fig" role="img"><rect x="14" y="140" width="312" height="12" rx="6" fill="#e3ece6"/><rect x="14" y="140" width="312" height="4" rx="2" fill="#d3e0d8"/><ellipse cx="50" cy="132" rx="30" ry="8" fill="#f1e6dc" stroke="#5f7f74" stroke-width="2.5"/><path d="M196,124 L262,129 L318,132" fill="none" stroke="#dba795" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" opacity=".35"/><path d="M286,108 h26 m-8,-7 l8,7 l-8,7" stroke="#d08f7a" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#5f7f74" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#c9d9cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#5f7f74" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#a9c4b6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="36" cy="106" r="8" fill="#8a6a58"/><circle cx="54" cy="112" r="16" fill="#f3d9c9" stroke="#5f7f74" stroke-width="2.5"/><path d="M40,104 q10,-14 28,-2" fill="none" stroke="#8a6a58" stroke-width="6" stroke-linecap="round"/><path d="M126,113 q16,-7 32,0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/></svg>',c:"Breathe out, cinch, slide one heel out and back. Keep your belly flat.",r:6,s:["Right leg","Left leg"]},
- {n:"Bent-knee fallouts",f:'<svg viewBox="10 40 320 118" class="fig" role="img"><rect x="14" y="140" width="312" height="12" rx="6" fill="#e3ece6"/><rect x="14" y="140" width="312" height="4" rx="2" fill="#d3e0d8"/><ellipse cx="50" cy="132" rx="30" ry="8" fill="#f1e6dc" stroke="#5f7f74" stroke-width="2.5"/><path d="M196,124 L222,66 L292,132" fill="none" stroke="#dba795" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" opacity=".35"/><path d="M250,58 q-18,0 -27,12" stroke="#d08f7a" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M221,62 l2,9 l8,-4" stroke="#d08f7a" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#5f7f74" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M196,124 L248,70 L294,132" fill="none" stroke="#c9d9cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#5f7f74" stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/><path d="M74,120 L196,124" fill="none" stroke="#a9c4b6" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M86,126 L150,132" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="36" cy="106" r="8" fill="#8a6a58"/><circle cx="54" cy="112" r="16" fill="#f3d9c9" stroke="#5f7f74" stroke-width="2.5"/><path d="M40,104 q10,-14 28,-2" fill="none" stroke="#8a6a58" stroke-width="6" stroke-linecap="round"/><path d="M126,113 q16,-7 32,0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" opacity=".8"/></svg>',c:"Breathe out, cinch, let one knee fall out and back. Keep hips still.",r:6,s:["Right side","Left side"]},
- {n:"Side-lying breathing",f:'<svg viewBox="10 40 320 118" class="fig" role="img"><rect x="14" y="140" width="312" height="12" rx="6" fill="#e3ece6"/><rect x="14" y="140" width="312" height="4" rx="2" fill="#d3e0d8"/><ellipse cx="58" cy="132" rx="30" ry="8" fill="#f1e6dc" stroke="#5f7f74" stroke-width="2.5"/><path d="M200,114 L270,108 L246,134" fill="none" stroke="#5f7f74" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><path d="M200,114 L270,108 L246,134" fill="none" stroke="#c9d9cf" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M80,120 C120,120 150,96 200,108" fill="none" stroke="#5f7f74" stroke-width="35" stroke-linecap="round" stroke-linejoin="round"/><path d="M80,120 C120,120 150,96 200,108" fill="none" stroke="#a9c4b6" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><path d="M92,108 C120,104 150,86 182,92" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M92,108 C120,104 150,86 182,92" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M70,128 L40,126" fill="none" stroke="#5f7f74" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/><path d="M70,128 L40,126" fill="none" stroke="#f3d9c9" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="104" r="8" fill="#8a6a58"/><circle cx="62" cy="110" r="16" fill="#f3d9c9" stroke="#5f7f74" stroke-width="2.5"/><path d="M48,102 q8,-12 26,-6" fill="none" stroke="#8a6a58" stroke-width="6" stroke-linecap="round"/></svg>',c:"Lie on your side, knees bent. Breathe out, gentle cinch, lift.",r:5,s:["Right side","Left side"],opt:1}
+ {w:"<b>Works:</b> the corset, pelvic floor and diaphragm learning to work together.<br><b>Why:</b> retrains the corset to switch on first and gently tightens the midline seam (linea alba).",n:"Core breathing",f:'lie',c:"Lie on your back, knees bent. Breathe out, gently cinch the corset, lift.",r:10},
+ {w:"<b>Works:</b> the corset holding your belly flat while the leg moves, plus lower-belly control and the front of the hips.<br><b>Why:</b> teaches your core to stay steady when your legs move, like walking or carrying kids.",n:"Heel slides",f:'slide',c:"Breathe out, cinch, slide one heel out and back. Keep your belly flat.",r:6,s:["Right leg","Left leg"]},
+ {w:"<b>Works:</b> the corset and side muscles keeping your hips still, plus inner thighs and hip control.<br><b>Why:</b> builds side-to-side steadiness without strain on the gap.",n:"Bent-knee fallouts",f:'fall',c:"Breathe out, cinch, let one knee fall out and back. Keep hips still.",r:6,s:["Right side","Left side"]},
+ {w:"<b>Works:</b> the corset, and your back and side ribs opening as you breathe, with gravity off your belly.<br><b>Why:</b> an easier position to feel the cinch, and it eases evening heaviness.",n:"Side-lying breathing",f:'side',c:"Lie on your side, knees bent. Breathe out, gentle cinch, lift.",r:5,s:["Right side","Left side"],opt:1}
 ];
 const $=id=>document.getElementById(id);
 const IN=4000,OUT=6000;
@@ -133,15 +212,18 @@ function total(){return tot(EX[i])}
 function progress(){const all=EX.reduce((a,e)=>a+tot(e),0);let done=0;for(let k=0;k<i;k++)done+=tot(EX[k]);done+=rep;$("prog").style.width=(100*done/all)+"%"}
 function loadEx(){
  const e=EX[i];rep=0;$("step").textContent=`${i+1} of ${EX.length}${e.opt?" · optional":""}`;
- $("name").textContent=e.n;$("figbox").innerHTML=e.f;$("cue").textContent=e.c;
+ $("name").textContent=e.n;$("figbox").innerHTML=figSVG(e.f,0,0);$("cue").textContent=e.c;$("infobody").innerHTML=e.w;setInfo(false);
  $("next").textContent=e.opt?"Skip":"Next";paused=false;$("pause").textContent="Pause";
  const s=$("ex");s.classList.remove("on");void s.offsetWidth;s.classList.add("on");startPhase("in",IN);
 }
 function repText(){const e=EX[i];let t=`${Math.min(rep+1,total())} of ${total()}`;
  if(e.s){const h=e.r,side=rep<h?0:1;t=`${e.s[side]} · ${rep%h+1} of ${h}`}$("reps").textContent=t;progress()}
 function setScale(ms,sc){[["ring",sc],["halo",sc*1.08]].forEach(([id,v])=>{const r=$(id);r.style.transition=`transform ${ms}ms cubic-bezier(.45,0,.55,1)`;r.style.transform=`scale(${v})`})}
+function setInfo(o){$("info").classList.toggle("open",o);$("ex").classList.toggle("infoopen",o);HL=o;$("figbox").innerHTML=figSVG(EX[i].f,.5,0)}
+$("infobtn").onclick=()=>setInfo(!$("info").classList.contains("open"));
+let fs=0;
 function startPhase(p,ms){
- phase=p;left=ms;t0=Date.now();
+ phase=p;left=ms;t0=Date.now();fs=1-ms/(p==="in"?IN:OUT);
  setScale(ms,p==="in"?1:.55);
  $("word").innerHTML=p==="in"?"Breathe in":"Breathe out<small>gentle cinch, lift</small>";
  repText();clearTimeout(timer);timer=setTimeout(endPhase,ms);
@@ -175,6 +257,11 @@ async function loadMsgs(){
  updBadge();if($("messages").classList.contains("on"))renderMsgs()}
 $("msgs").onclick=()=>{show("messages");renderMsgs();localStorage.setItem("coreSeen",lastH());updBadge();loadMsgs().then(()=>localStorage.setItem("coreSeen",lastH()))};
 $("mback").onclick=()=>{updBadge();show("start")};
+function ease(x){return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2}
+function frame(){if($("ex").classList.contains("on")&&!paused){const el=Math.min(1,(Date.now()-t0)/Math.max(left,1));const p=fs+(1-fs)*el,q=ease(Math.min(1,p));
+ const e=phase==="in"?q:1-q,m=phase==="in"?1-q:q;$("figbox").innerHTML=figSVG(EX[i].f,e,m)}requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+$("startfig").innerHTML=figSVG("lie",.4,0);
 renderWeek();loadMsgs();
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){loadMsgs();if($("start").classList.contains("on"))renderWeek()}});
 </script></body></html>
